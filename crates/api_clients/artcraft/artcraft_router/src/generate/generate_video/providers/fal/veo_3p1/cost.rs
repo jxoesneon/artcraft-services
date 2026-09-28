@@ -148,8 +148,8 @@ mod tests {
     }
 
     #[test]
-    fn reference_4s_audio_off_720p_is_80() {
-      assert_eq!(cost_cents(Modality::Reference, Some(4), Some(RouterResolution::SevenTwentyP), Some(false)), 80);
+    fn reference_4s_request_is_billed_as_8s_audio_off_720p_is_160() {
+      assert_eq!(cost_cents(Modality::Reference, Some(4), Some(RouterResolution::SevenTwentyP), Some(false)), 160);
     }
 
     #[test]
@@ -172,8 +172,8 @@ mod tests {
     }
 
     #[test]
-    fn extend_8s_audio_on_is_320() {
-      assert_eq!(cost_cents(Modality::Extend, Some(8), None, Some(true)), 320);
+    fn extend_8s_request_is_billed_as_7s_audio_on_is_280() {
+      assert_eq!(cost_cents(Modality::Extend, Some(8), None, Some(true)), 280);
     }
 
     #[test]
@@ -185,9 +185,10 @@ mod tests {
 
   #[test]
   fn t2v_i2v_flf_and_reference_price_identically() {
-    let expected = cost_cents(Modality::TextToVideo, Some(6), Some(RouterResolution::TenEightyP), Some(true));
+    // NB: At 8s, the only duration reference-to-video accepts.
+    let expected = cost_cents(Modality::TextToVideo, Some(8), Some(RouterResolution::TenEightyP), Some(true));
     for modality in [Modality::ImageToVideo, Modality::FirstLastFrame, Modality::Reference] {
-      assert_eq!(cost_cents(modality, Some(6), Some(RouterResolution::TenEightyP), Some(true)), expected);
+      assert_eq!(cost_cents(modality, Some(8), Some(RouterResolution::TenEightyP), Some(true)), expected);
     }
   }
 

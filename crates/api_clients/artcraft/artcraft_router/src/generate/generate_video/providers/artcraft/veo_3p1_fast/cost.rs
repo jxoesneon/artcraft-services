@@ -14,7 +14,8 @@ impl ArtcraftVeo3p1FastCostState {
   pub fn from_request(request: &ArtcraftVeo3p1FastRequestState) -> Self {
     Self {
       // v1 legacy Veo 3.1 Fast multi-function handler defaults None → 6s.
-      duration_seconds: request.request.duration_seconds.map(u64::from).unwrap_or(6),
+      // NB: fal defaults Veo 3.1 to 8s (the builder plans it explicitly anyway).
+      duration_seconds: request.request.duration_seconds.map(u64::from).unwrap_or(8),
       // v1 legacy Veo 3.1 Fast handler defaults generate_audio to true.
       generate_audio: request.request.generate_audio.unwrap_or(true),
       is_4k: request.request.resolution == Some(CommonResolutionEnum::FourK),
@@ -85,8 +86,9 @@ mod tests {
   fn audio_off_4s_is_44() { assert_eq!(cost_cents(Some(4), Some(false)), 44); }
 
   #[test]
-  fn default_duration_is_6s() {
-    assert_eq!(cost_cents(None, Some(true)), 99);
+  fn default_duration_is_8s() {
+    // fal defaults Veo 3.1 to 8s.
+    assert_eq!(cost_cents(None, Some(true)), cost_cents(Some(8), Some(true)));
   }
 
   #[test]

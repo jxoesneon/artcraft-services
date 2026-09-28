@@ -37,19 +37,6 @@ fn build_omni_gen_mesh_models() -> Vec<OmniGenMeshModelDetails> {
     ..Default::default()
   });
 
-  // Hunyuan 3D 2.1: image-to-3D only (exactly one input image).
-  models.push(OmniGenMeshModelDetails {
-    model: CommonMeshModel::Hunyuan3d2p1,
-    model_creator: Some(ModelCreator::Tencent),
-    full_name: Some("Hunyuan 3D 2.1".to_string()),
-    image_input_supported: Some(true),
-    mesh_output_types: Some(vec![
-      CommonMeshOutputType::Normal,
-      CommonMeshOutputType::Geometry,
-    ]),
-    ..Default::default()
-  });
-
   // Hunyuan 3D 3: text and/or image input with multi-view support and full
   // output shaping controls (output type, polygon type, face count, PBR).
   models.push(OmniGenMeshModelDetails {
@@ -225,10 +212,6 @@ fn build_omni_gen_mesh_model_providers() -> Vec<OmniGenMeshModelProviderDetails>
         overrides: None,
       },
       OmniGenMeshProviderModelDetails {
-        model: CommonMeshModel::Hunyuan3d2p1,
-        overrides: None,
-      },
-      OmniGenMeshProviderModelDetails {
         model: CommonMeshModel::Hunyuan3d3,
         overrides: None,
       },
@@ -268,4 +251,23 @@ fn build_omni_gen_mesh_model_providers() -> Vec<OmniGenMeshModelProviderDetails>
   });
 
   providers
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::http_server::endpoints::omni_gen::shared_utils::mesh::resolve_mesh_model::{mesh_model_status, MeshModelStatus};
+
+  /// Replaced models (see `resolve_mesh_model`) must not be offered.
+  #[test]
+  fn only_available_models_are_listed() {
+    for details in build_omni_gen_mesh_models() {
+      assert_eq!(mesh_model_status(details.model), MeshModelStatus::Available, "{:?}", details.model);
+    }
+    for provider in build_omni_gen_mesh_model_providers() {
+      for details in provider.models {
+        assert_eq!(mesh_model_status(details.model), MeshModelStatus::Available, "{:?}", details.model);
+      }
+    }
+  }
 }

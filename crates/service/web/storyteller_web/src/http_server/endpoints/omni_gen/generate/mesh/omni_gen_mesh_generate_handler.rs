@@ -35,6 +35,7 @@ use crate::http_server::endpoints::omni_gen::generate::mesh::helpers::hydrate_ro
 use crate::http_server::endpoints::omni_gen::generate::mesh::insert_db_job::insert_fal_job::{insert_fal_job, InsertFalJobArgs};
 use crate::http_server::endpoints::omni_gen::generate::mesh::pipeline_v2::run_pipeline_v2::{run_pipeline_v2, RunPipelineV2Args};
 use crate::http_server::endpoints::omni_gen::generate::video::insert_db_job::shared_job_args::SharedJobArgs;
+use crate::http_server::endpoints::omni_gen::shared_utils::mesh::resolve_mesh_model::resolve_mesh_model;
 use crate::http_server::endpoints::omni_gen::shared_utils::mesh::validate_mesh_request::validate_mesh_request;
 use crate::http_server::user_lookup::api_or_web_session::require_any_session_or_key::{require_any_session_or_key, AnySessionType};
 use crate::http_server::validations::validate_idempotency_token_format::validate_idempotency_token_format;
@@ -60,11 +61,15 @@ use crate::util::lookup::lookup_media_files_as_cdn_url_list_and_map::lookup_medi
 )]
 pub async fn omni_gen_mesh_generate_handler(
   http_request: HttpRequest,
-  request: Json<OmniGenMeshCostAndGenerateRequest>,
+  mut request: Json<OmniGenMeshCostAndGenerateRequest>,
   server_state: web::Data<Arc<ServerState>>,
 ) -> Result<Json<OmniGenMeshGenerateResponse>, CommonWebError> {
 
   info!("request: {:?}", request);
+
+  // Replaced models are rewritten (see helper) before anything prices,
+  // validates, or bills the request.
+  request.model = resolve_mesh_model(request.model)?;
 
   // Reject doomed combos (e.g. prompt-only hunyuan 2.x, sketch without a
   // prompt) before any billable or DB-mutating work — see helper for the rules.

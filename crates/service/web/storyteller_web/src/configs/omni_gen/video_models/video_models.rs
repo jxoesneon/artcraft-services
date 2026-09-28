@@ -12,7 +12,6 @@ use super::by_type::minimax_video_models::minimax_video_models;
 use super::by_type::seedance_1x_video_models::{seedance_1p0_video_models, seedance_1p5_video_models};
 use super::by_type::seedance_2p0_video_models::seedance_2p0_video_models;
 use super::by_type::seedance_2p5_video_models::seedance_2p5_video_models;
-use super::by_type::sora_video_models::sora_video_models;
 use super::by_type::veo_video_models::veo_video_models;
 use super::by_type::vidu_video_models::vidu_video_models;
 
@@ -39,7 +38,6 @@ fn build_omni_gen_video_models() -> Vec<OmniGenVideoModelDetails> {
   models.extend(seedance_1p5_video_models());
   models.extend(seedance_2p0_video_models());
   models.extend(seedance_2p5_video_models());
-  models.extend(sora_video_models());
   models.extend(veo_video_models());
   models.extend(vidu_video_models());
   models.extend(wan_video_models());
@@ -61,30 +59,6 @@ fn build_omni_gen_video_model_providers() -> Vec<OmniGenVideoModelProviderDetail
       },
       OmniGenVideoProviderModelDetails {
         model: CommonVideoModel::Seedance2p0,
-        overrides: None,
-      },
-      OmniGenVideoProviderModelDetails {
-        model: CommonVideoModel::Seedance10Lite,
-        overrides: None,
-      },
-      OmniGenVideoProviderModelDetails {
-        model: CommonVideoModel::Sora2,
-        overrides: None,
-      },
-      OmniGenVideoProviderModelDetails {
-        model: CommonVideoModel::Sora2Pro,
-        overrides: None,
-      },
-      OmniGenVideoProviderModelDetails {
-        model: CommonVideoModel::Veo2,
-        overrides: None,
-      },
-      OmniGenVideoProviderModelDetails {
-        model: CommonVideoModel::Veo3,
-        overrides: None,
-      },
-      OmniGenVideoProviderModelDetails {
-        model: CommonVideoModel::Veo3Fast,
         overrides: None,
       },
       OmniGenVideoProviderModelDetails {
@@ -128,18 +102,6 @@ fn build_omni_gen_video_model_providers() -> Vec<OmniGenVideoModelProviderDetail
         overrides: None,
       },
       OmniGenVideoProviderModelDetails {
-        model: CommonVideoModel::Kling16Pro,
-        overrides: None,
-      },
-      OmniGenVideoProviderModelDetails {
-        model: CommonVideoModel::Kling21Pro,
-        overrides: None,
-      },
-      OmniGenVideoProviderModelDetails {
-        model: CommonVideoModel::Kling21Master,
-        overrides: None,
-      },
-      OmniGenVideoProviderModelDetails {
         model: CommonVideoModel::Kling2p5TurboPro,
         overrides: None,
       },
@@ -164,6 +126,20 @@ fn build_omni_gen_video_model_providers() -> Vec<OmniGenVideoModelProviderDetail
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::http_server::endpoints::omni_gen::shared_utils::video::resolve_video_model::{video_model_status, VideoModelStatus};
+
+  /// Retired and replaced models (see `resolve_video_model`) must not be offered.
+  #[test]
+  fn only_available_models_are_listed() {
+    for details in build_omni_gen_video_models() {
+      assert_eq!(video_model_status(details.model), VideoModelStatus::Available, "{:?}", details.model);
+    }
+    for provider in build_omni_gen_video_model_providers() {
+      for details in provider.models {
+        assert_eq!(video_model_status(details.model), VideoModelStatus::Available, "{:?}", details.model);
+      }
+    }
+  }
 
   #[test]
   fn kinovi_batch_options_are_one_through_four() {

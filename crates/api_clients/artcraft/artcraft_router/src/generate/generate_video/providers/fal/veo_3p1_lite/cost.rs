@@ -114,16 +114,18 @@ mod tests {
     }
 
     #[test]
-    fn flf_4s_audio_off_720p_is_12() {
-      assert_eq!(cost_cents(Some(4), Some(RouterResolution::SevenTwentyP), Some(false), 2), 12);
+    fn flf_4s_request_is_billed_as_8s_audio_off_720p_is_24() {
+      // Lite's first-last-frame endpoint only accepts "8s".
+      assert_eq!(cost_cents(Some(4), Some(RouterResolution::SevenTwentyP), Some(false), 2), 24);
     }
   }
 
   #[test]
   fn all_three_modes_price_identically() {
-    let t2v = cost_cents(Some(6), Some(RouterResolution::TenEightyP), Some(true), 0);
-    let i2v = cost_cents(Some(6), Some(RouterResolution::TenEightyP), Some(true), 1);
-    let flf = cost_cents(Some(6), Some(RouterResolution::TenEightyP), Some(true), 2);
+    // NB: At 8s, the only duration first-last-frame accepts.
+    let t2v = cost_cents(Some(8), Some(RouterResolution::TenEightyP), Some(true), 0);
+    let i2v = cost_cents(Some(8), Some(RouterResolution::TenEightyP), Some(true), 1);
+    let flf = cost_cents(Some(8), Some(RouterResolution::TenEightyP), Some(true), 2);
     assert_eq!(t2v, i2v);
     assert_eq!(i2v, flf);
   }

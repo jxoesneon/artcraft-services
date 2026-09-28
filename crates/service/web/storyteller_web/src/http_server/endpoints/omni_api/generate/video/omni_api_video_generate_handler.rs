@@ -15,6 +15,7 @@ use crate::http_server::endpoints::generate::common::payments_error_test::paymen
 use crate::http_server::endpoints::omni_api::generate::video::check_request::check_request;
 use crate::http_server::endpoints::omni_api::generate::video::ingest_url_inputs::ingest_url_inputs;
 use crate::http_server::endpoints::omni_api::shared_utils::video::validate_video_request::validate_video_request;
+use crate::http_server::endpoints::omni_gen::shared_utils::video::resolve_video_model::resolve_video_model;
 use crate::http_server::endpoints::omni_gen::generate::video::shared_video_generation::{
   run_authenticated_video_generation, VideoGenerationAuth,
 };
@@ -48,6 +49,10 @@ pub async fn omni_api_video_generate_handler(
 ) -> Result<Json<OmniGenVideoGenerateResponse>, CommonWebError> {
 
   info!("request: {:?}", request);
+
+  // Retired models get a 400; replaced ones are rewritten (see helper) before
+  // anything prices, validates, or bills the request.
+  request.model = resolve_video_model(request.model)?;
 
   // Validate URL/media-token preconditions before any billable or DB-mutating work.
   check_request(&request)?;

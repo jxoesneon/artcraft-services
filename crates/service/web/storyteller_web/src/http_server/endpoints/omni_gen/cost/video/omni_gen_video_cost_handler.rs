@@ -16,6 +16,7 @@ use crate::http_server::endpoints::generate::common::probed_reference_videos::{
 };
 use crate::http_server::endpoints::omni_gen::shared_utils::map_router_cost_error::map_router_cost_error;
 use crate::http_server::endpoints::omni_gen::generate::video::helpers::hydrate_router_request::hydrate_to_router_request;
+use crate::http_server::endpoints::omni_gen::shared_utils::video::resolve_video_model::resolve_video_model;
 use crate::state::server_state::ServerState;
 
 /// Estimate the cost of a video generation.
@@ -32,13 +33,18 @@ use crate::state::server_state::ServerState;
 )]
 pub async fn omni_gen_video_cost_handler(
   http_request: HttpRequest,
-  request: Json<OmniGenVideoCostAndGenerateRequest>,
+  mut request: Json<OmniGenVideoCostAndGenerateRequest>,
   maybe_server_state: Option<web::Data<Arc<ServerState>>>,
 ) -> Result<Json<OmniGenVideoCostResponse>, CommonWebError> {
   // NB: Deliberately no input validation here. The UI polls this endpoint
   // while the user is still composing the request (no prompt typed, nothing
   // attached), and pricing is a total function of the model and options.
   // Bad requests are rejected by the generate endpoint.
+  //
+  // The one exception: retired models get a 400, and replaced ones are priced
+  // as their replacement (the model generation will actually use).
+  request.model = resolve_video_model(request.model)?;
+
   let mut builder = hydrate_to_router_request(&request)?;
 
   builder.provider = RouterProvider::Artcraft; // NB: User is paying for ArtCraft credits / generation
@@ -216,7 +222,6 @@ mod tests {
         CommonVideoModel::Kling3p0Pro,
         CommonVideoModel::MinimaxH3,
         CommonVideoModel::Seedance2p0,
-        CommonVideoModel::Sora2,
         CommonVideoModel::Veo3p1,
         CommonVideoModel::ViduQ3,
       ] {
@@ -225,6 +230,68 @@ mod tests {
           .unwrap_or_else(|e| panic!("bare-model cost estimate should succeed for {model:?}: {e:?}"));
         assert!(response.cost_in_credits.unwrap() > 0, "no cost for {model:?}");
       }
+    }
+  }
+
+  mod retired_and_replaced_model_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn sora_models_are_rejected_with_a_400() {
+      for model in [CommonVideoModel::Sora2, CommonVideoModel::Sora2Pro] {
+        let err = post_cost_request(base_request(model))
+          .await
+          .expect_err("retired model should be rejected");
+        assert_eq!(err.status_code(), StatusCode::BAD_REQUEST, "{:?}", model);
+      }
+    }
+
+    #[tokio::test]
+    async fn replaced_models_are_quoted_as_their_replacement() {
+      for (model, replacement) in [
+        (CommonVideoModel::Seedance2p5Preview, CommonVideoModel::Seedance2p5),
+        (CommonVideoModel::Veo3Fast, CommonVideoModel::Veo3p1Fast),
+        (CommonVideoModel::Veo3, CommonVideoModel::Veo3p1),
+        (CommonVideoModel::Kling21Master, CommonVideoModel::Kling2p6Pro),
+      ] {
+        let replaced_quote = post_cost_request(base_request(model)).await.unwrap();
+        let replacement_quote = post_cost_request(base_request(replacement)).await.unwrap();
+        assert_eq!(replaced_quote.cost_in_credits, replacement_quote.cost_in_credits, "{:?}", model);
+        assert!(replaced_quote.cost_in_credits.unwrap() > 0, "{:?}", model);
+      }
+    }
+  }
+
+  mod veo_duration_tests {
+    use super::*;
+
+    /// fal's Veo 3.1 reference-to-video endpoint only generates 8s, so a
+    /// shorter request must be quoted (and billed) as the 8s it produces.
+    #[tokio::test]
+    async fn veo_3p1_reference_requests_are_quoted_at_8s() {
+      for model in [CommonVideoModel::Veo3p1, CommonVideoModel::Veo3p1Fast] {
+        let quote = |seconds| {
+          let mut request = base_request(model);
+          request.reference_image_media_tokens = Some(vec![MediaFileToken::new_from_str("m_reference")]);
+          request.duration_seconds = Some(seconds);
+          post_cost_request(request)
+        };
+        let four = quote(4).await.unwrap();
+        let eight = quote(8).await.unwrap();
+        assert_eq!(four.cost_in_credits, eight.cost_in_credits, "{:?}", model);
+      }
+    }
+
+    #[tokio::test]
+    async fn veo_3p1_text_to_video_quotes_by_duration() {
+      let quote = |seconds| {
+        let mut request = base_request(CommonVideoModel::Veo3p1Fast);
+        request.duration_seconds = Some(seconds);
+        post_cost_request(request)
+      };
+      let four = quote(4).await.unwrap().cost_in_credits.unwrap();
+      let eight = quote(8).await.unwrap().cost_in_credits.unwrap();
+      assert!(four < eight);
     }
   }
 

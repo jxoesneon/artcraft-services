@@ -11,6 +11,7 @@ use fal_client::requests::api::video::text::veo_3p1_lite::api::{
   Veo3p1LiteTextToVideoResolution,
 };
 
+use crate::generate::generate_video::providers::veo_3p1_common::{plan_veo_3p1_duration, Veo3p1Modality, Veo3p1Variant};
 use crate::api::image_list_ref::ImageListRef;
 use crate::api::image_ref::ImageRef;
 use crate::api::router_aspect_ratio::RouterAspectRatio;
@@ -77,10 +78,16 @@ pub(crate) fn build_fal_veo_3p1_lite_state(
 
   let aspect_ratio = plan_aspect_ratio(builder.aspect_ratio, strategy)?;
   let resolution = plan_resolution(builder.resolution, strategy)?;
-  let duration = plan_duration(builder.duration_seconds, strategy)?;
   let prompt = builder.prompt.clone().unwrap_or_default();
   let negative_prompt = builder.negative_prompt.clone();
   let generate_audio = builder.generate_audio;
+
+  let modality = match (&start, &end) {
+    (Some(_), Some(_)) => Veo3p1Modality::FirstLastFrameToVideo,
+    (Some(_), None) => Veo3p1Modality::ImageToVideo,
+    (None, _) => Veo3p1Modality::TextToVideo,
+  };
+  let duration = plan_duration(builder.duration_seconds, modality, strategy)?;
 
   let mode = match (start, end) {
     (None, None) => FalVeo3p1LiteMode::TextToVideo(Veo3p1LiteTextToVideoRequest {
@@ -209,31 +216,20 @@ fn plan_resolution(
   }
 }
 
+/// fal's accepted durations depend on the modality; see `veo_3p1_common`.
 fn plan_duration(
   duration_seconds: Option<u16>,
+  modality: Veo3p1Modality,
   strategy: RequestMismatchMitigationStrategy,
 ) -> Result<Option<PlanDuration>, ArtcraftRouterError> {
-  match duration_seconds {
-    None => Ok(None),
-    Some(4) => Ok(Some(PlanDuration::Four)),
-    Some(6) => Ok(Some(PlanDuration::Six)),
-    Some(8) => Ok(Some(PlanDuration::Eight)),
-    Some(other) => match strategy {
-      RequestMismatchMitigationStrategy::ErrorOut => {
-        Err(unsupported("duration_seconds", &format!("{}", other)))
-      }
-      RequestMismatchMitigationStrategy::PayMoreUpgrade => Ok(Some(match other {
-        0..=4 => PlanDuration::Four,
-        5..=6 => PlanDuration::Six,
-        _ => PlanDuration::Eight,
-      })),
-      RequestMismatchMitigationStrategy::PayLessDowngrade => Ok(Some(match other {
-        0..=5 => PlanDuration::Four,
-        6..=7 => PlanDuration::Six,
-        _ => PlanDuration::Eight,
-      })),
-    },
-  }
+  plan_veo_3p1_duration(Veo3p1Variant::Lite, modality, duration_seconds, strategy)?
+      .map(|seconds| match seconds {
+        4 => Ok(PlanDuration::Four),
+        6 => Ok(PlanDuration::Six),
+        8 => Ok(PlanDuration::Eight),
+        other => Err(unsupported("duration_seconds", &format!("{}", other))),
+      })
+      .transpose()
 }
 
 fn unsupported(field: &'static str, value: &str) -> ArtcraftRouterError {

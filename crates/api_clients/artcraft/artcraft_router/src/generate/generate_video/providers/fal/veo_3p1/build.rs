@@ -19,6 +19,7 @@ use fal_client::requests::api::video::text::veo_3p1::api::{
   Veo3p1TextToVideoResolution,
 };
 
+use crate::generate::generate_video::providers::veo_3p1_common::{plan_veo_3p1_duration, Veo3p1Modality, Veo3p1Variant};
 use crate::api::image_list_ref::ImageListRef;
 use crate::api::image_ref::ImageRef;
 use crate::api::router_aspect_ratio::RouterAspectRatio;
@@ -139,14 +140,19 @@ pub(crate) fn build_fal_veo_3p1_state(
       prompt,
       image_urls,
       aspect_ratio: aspect_ratio.and_then(to_reference_aspect_ratio),
-      duration: plan_duration(builder.duration_seconds, strategy)?.map(to_reference_duration),
+      duration: plan_duration(builder.duration_seconds, Veo3p1Modality::ReferenceToVideo, strategy)?.map(to_reference_duration),
       resolution: resolution.map(to_reference_resolution),
       generate_audio,
       auto_fix: None,
       safety_tolerance: None,
     })
   } else {
-    let duration = plan_duration(builder.duration_seconds, strategy)?;
+    let modality = match (&start, &end) {
+      (Some(_), Some(_)) => Veo3p1Modality::FirstLastFrameToVideo,
+      (Some(_), None) => Veo3p1Modality::ImageToVideo,
+      (None, _) => Veo3p1Modality::TextToVideo,
+    };
+    let duration = plan_duration(builder.duration_seconds, modality, strategy)?;
     match (start, end) {
       (None, None) => FalVeo3p1Mode::TextToVideo(Veo3p1TextToVideoRequest {
         prompt,
@@ -276,57 +282,31 @@ fn plan_resolution(
   }
 }
 
+/// fal's accepted durations depend on the modality; see `veo_3p1_common`.
 fn plan_duration(
   duration_seconds: Option<u16>,
+  modality: Veo3p1Modality,
   strategy: RequestMismatchMitigationStrategy,
 ) -> Result<Option<PlanDuration>, ArtcraftRouterError> {
-  match duration_seconds {
-    None => Ok(None),
-    Some(4) => Ok(Some(PlanDuration::Four)),
-    Some(6) => Ok(Some(PlanDuration::Six)),
-    Some(8) => Ok(Some(PlanDuration::Eight)),
-    Some(other) => match strategy {
-      RequestMismatchMitigationStrategy::ErrorOut => {
-        Err(unsupported("duration_seconds", &format!("{}", other)))
-      }
-      // Nearest supported duration above/below, clamped to the 4s–8s range.
-      RequestMismatchMitigationStrategy::PayMoreUpgrade => Ok(Some(match other {
-        0..=4 => PlanDuration::Four,
-        5..=6 => PlanDuration::Six,
-        _ => PlanDuration::Eight,
-      })),
-      RequestMismatchMitigationStrategy::PayLessDowngrade => Ok(Some(match other {
-        0..=5 => PlanDuration::Four,
-        6..=7 => PlanDuration::Six,
-        _ => PlanDuration::Eight,
-      })),
-    },
-  }
+  plan_veo_3p1_duration(Veo3p1Variant::Standard, modality, duration_seconds, strategy)?
+      .map(|seconds| match seconds {
+        4 => Ok(PlanDuration::Four),
+        6 => Ok(PlanDuration::Six),
+        8 => Ok(PlanDuration::Eight),
+        other => Err(unsupported("duration_seconds", &format!("{}", other))),
+      })
+      .transpose()
 }
 
-/// Extend-video also supports fal's 7s default in addition to 4/6/8.
+/// fal's extend-video endpoints only accept 7s; see `veo_3p1_common`.
 fn plan_extend_duration(
   duration_seconds: Option<u16>,
   strategy: RequestMismatchMitigationStrategy,
 ) -> Result<Option<Veo3p1ExtendVideoDuration>, ArtcraftRouterError> {
-  use Veo3p1ExtendVideoDuration as D;
-  match duration_seconds {
+  match plan_veo_3p1_duration(Veo3p1Variant::Standard, Veo3p1Modality::ExtendVideo, duration_seconds, strategy)? {
     None => Ok(None),
-    Some(4) => Ok(Some(D::FourSeconds)),
-    Some(6) => Ok(Some(D::SixSeconds)),
-    Some(7) => Ok(Some(D::SevenSeconds)),
-    Some(8) => Ok(Some(D::EightSeconds)),
-    Some(other) => match strategy {
-      RequestMismatchMitigationStrategy::ErrorOut => {
-        Err(unsupported("duration_seconds", &format!("{}", other)))
-      }
-      RequestMismatchMitigationStrategy::PayMoreUpgrade => {
-        Ok(Some(if other < 5 { D::FourSeconds } else if other == 5 { D::SixSeconds } else { D::EightSeconds }))
-      }
-      RequestMismatchMitigationStrategy::PayLessDowngrade => {
-        Ok(Some(if other <= 5 { D::FourSeconds } else { D::EightSeconds }))
-      }
-    },
+    Some(7) => Ok(Some(Veo3p1ExtendVideoDuration::SevenSeconds)),
+    Some(other) => Err(unsupported("duration_seconds", &format!("{}", other))),
   }
 }
 
@@ -592,14 +572,15 @@ mod tests {
     }
 
     #[test]
-    fn extend_duration_5s_pay_more_upgrades_to_6() {
+    fn extend_duration_is_always_7s() {
+      // fal's extend-video endpoint only accepts "7s".
       let mut b = base_builder();
       b.reference_videos = Some(VideoListRef::Urls(vec![REFERENCE_VIDEO_URL.to_string()]));
       b.duration_seconds = Some(5);
       b.request_mismatch_mitigation_strategy = RequestMismatchMitigationStrategy::PayMoreUpgrade;
       match unwrap_mode(b) {
         FalVeo3p1Mode::ExtendVideo(r) => {
-          assert!(matches!(r.duration, Some(Veo3p1ExtendVideoDuration::SixSeconds)));
+          assert!(matches!(r.duration, Some(Veo3p1ExtendVideoDuration::SevenSeconds)));
         }
         _ => panic!("expected extend"),
       }
@@ -681,14 +662,15 @@ mod tests {
     }
 
     #[test]
-    fn reference_maps_duration_and_resolution() {
+    fn reference_duration_is_always_8s_and_maps_resolution() {
+      // fal's reference-to-video endpoint only accepts "8s" (it rejected 6s in production).
       let mut b = base_builder();
       b.reference_images = Some(ImageListRef::Urls(vec![REFERENCE_IMAGE_URL_A.to_string()]));
       b.duration_seconds = Some(6);
       b.resolution = Some(RouterResolution::FourK);
       match unwrap_mode(b) {
         FalVeo3p1Mode::ReferenceToVideo(r) => {
-          assert!(matches!(r.duration, Some(Veo3p1ReferenceToVideoDuration::SixSeconds)));
+          assert!(matches!(r.duration, Some(Veo3p1ReferenceToVideoDuration::EightSeconds)));
           assert!(matches!(r.resolution, Some(Veo3p1ReferenceToVideoResolution::FourK)));
         }
         _ => panic!("expected reference"),

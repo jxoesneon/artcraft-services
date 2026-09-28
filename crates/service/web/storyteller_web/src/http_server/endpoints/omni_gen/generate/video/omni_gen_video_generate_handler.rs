@@ -13,6 +13,7 @@ use crate::http_server::endpoints::generate::common::payments_error_test::paymen
 use crate::http_server::endpoints::omni_gen::generate::video::shared_video_generation::{
   run_authenticated_video_generation, VideoGenerationAuth,
 };
+use crate::http_server::endpoints::omni_gen::shared_utils::video::resolve_video_model::resolve_video_model;
 use crate::http_server::endpoints::omni_gen::shared_utils::video::validate_video_request::validate_video_request;
 use crate::http_server::user_lookup::api_or_web_session::require_any_session_or_key::{require_any_session_or_key, AnySessionType};
 use crate::http_server::web_utils::get_request_platform_type::get_request_platform_type;
@@ -40,11 +41,15 @@ use crate::state::server_state::ServerState;
 )]
 pub async fn omni_gen_video_generate_handler(
   http_request: HttpRequest,
-  request: Json<OmniGenVideoCostAndGenerateRequest>,
+  mut request: Json<OmniGenVideoCostAndGenerateRequest>,
   server_state: web::Data<Arc<ServerState>>,
 ) -> Result<Json<OmniGenVideoGenerateResponse>, CommonWebError> {
 
   info!("request: {:?}", request);
+
+  // Retired models get a 400; replaced ones are rewritten (see helper) before
+  // anything prices, validates, or bills the request.
+  request.model = resolve_video_model(request.model)?;
 
   // Reject doomed combos (e.g. grok_imagine_video_1p5 without an image)
   // before any billable or DB-mutating work — see helper for the rules.
