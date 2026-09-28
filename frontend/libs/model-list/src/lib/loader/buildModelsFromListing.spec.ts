@@ -19,7 +19,6 @@ describe("desktop catalog", () => {
     const ids = [
       "seedance_2p5",
       "seedance_2p5_u",
-      "seedance_2p5_preview",
       "seedance_2p0_mini",
       "flux_3",
       "minimax_h3",
@@ -34,13 +33,13 @@ describe("desktop catalog", () => {
   });
 
   it("retains offered disabled entries and excludes the MiniMax admin variants", () => {
-    const ids = ["sora_2", "minimax_h3_turbo", "minimax_h3_ultra"];
+    const ids = ["kling_3p0_pro", "minimax_h3_turbo", "minimax_h3_ultra"];
     const models = buildVideoModelsFromListing(
       [],
       ids.map((model) => ({ model, is_disabled: true })),
       ids,
     );
-    expect(models.map((model) => model.tauriId)).toEqual(["sora_2"]);
+    expect(models.map((model) => model.tauriId)).toEqual(["kling_3p0_pro"]);
   });
 
   it("preserves future image options and leaves editor eligibility unchanged", () => {
@@ -72,16 +71,16 @@ describe("desktop catalog", () => {
     }
   });
 
-  it("keeps Sora and Marble models available through ArtCraft after hydration", () => {
+  it("keeps GPT Image, Veo and Marble models available through ArtCraft after hydration", () => {
     const images = buildImageModelsFromListing(IMAGE_MODELS, [
       { model: "gpt_image_1", image_refs_supported: true },
     ]);
     const videos = buildVideoModelsFromListing(VIDEO_MODELS, [
-      { model: "sora_2", duration_seconds_options: [4, 8, 12] },
+      { model: "veo_3p1", duration_seconds_options: [4, 6, 8] },
     ]);
     expect(images.find((model) => model.tauriId === "gpt_image_1")?.getProviders())
       .toEqual([GenerationProvider.Artcraft]);
-    expect(videos.find((model) => model.tauriId === "sora_2")?.getProviders())
+    expect(videos.find((model) => model.tauriId === "veo_3p1")?.getProviders())
       .toEqual([GenerationProvider.Artcraft]);
     expect(SPLAT_MODELS.map((model) => model.tauriId)).toEqual([
       "marble_0p1_mini", "marble_0p1_plus",

@@ -1158,11 +1158,6 @@ export const PromptBoxVideo = ({
         case "grok_imagine_video":
           request.grok_aspect_ratio = getGrokAspectRatio();
           break;
-
-        case "sora_2":
-          request.sora_orientation =
-            resolution === "720p" ? "landscape" : "portrait";
-          break;
       }
 
       if (selectedModel.supportsCommonAspectRatio) {

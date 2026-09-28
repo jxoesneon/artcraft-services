@@ -195,65 +195,6 @@ const ALL_MODELS: ModelConfig[] = [
     tags: [ModelTag.MaskedInpainting],
   }),
 
-  //////////////////////////////
-  // Video models
-  //////////////////////////////
-  cfg({
-    id: "kling_1_6_pro",
-    category: "video",
-    info: {
-      name: "Kling 1.6 Pro",
-      tauri_id: "kling_1.6_pro",
-      creator: mc.Kling,
-    },
-    description: "Good quality model",
-    badges: [{ label: "2 min." }],
-    capabilities: { maxGenerationCount: 1 },
-  }),
-  cfg({
-    id: "kling_2_1_pro",
-    category: "video",
-    info: {
-      name: "Kling 2.1 Pro",
-      tauri_id: "kling_2.1_pro",
-      creator: mc.Kling,
-    },
-    description: "High quality model",
-    badges: [{ label: "2 min." }],
-    capabilities: { maxGenerationCount: 1 },
-  }),
-  cfg({
-    id: "kling_2_1_master",
-    category: "video",
-    info: {
-      name: "Kling 2.1 Master",
-      tauri_id: "kling_2.1_master",
-      creator: mc.Kling,
-    },
-    description: "Master quality model ($$)",
-    badges: [{ label: "2 min." }],
-    capabilities: { maxGenerationCount: 1 },
-  }),
-  cfg({
-    id: "seedance_1_0_lite",
-    category: "video",
-    info: {
-      name: "Seedance 1.0 Lite",
-      tauri_id: "seedance_1.0_lite",
-      creator: mc.Bytedance,
-    },
-    description: "Fast and high-quality model",
-    badges: [{ label: "2 min." }],
-    capabilities: { maxGenerationCount: 1 },
-  }),
-  cfg({
-    id: "veo_2",
-    category: "video",
-    info: { name: "Google Veo 2", tauri_id: "veo_2", creator: mc.Google },
-    description: "Fast and high-quality model",
-    badges: [{ label: "2 min." }],
-    capabilities: { maxGenerationCount: 1 },
-  }),
 ];
 
 // export const ALL_MODELS_BY_ID: Map<string, ModelConfig> = new Map(
