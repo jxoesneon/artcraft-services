@@ -41,6 +41,7 @@ type AnalyticsEvents = {
   video_start: { video_provider: string; video_title: string; video_url?: string };
   share: { method: string; content_type: string; item_id: string };
   copy_command: { app_name: string };
+  app_select: { app_name: string };
   press_kit_download: { asset_name: string };
 
   // Sent from component code.
