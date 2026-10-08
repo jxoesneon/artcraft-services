@@ -21,7 +21,7 @@ jobs:
   # supported Linux server architectures.
   package-linux:
     name: Linux (${{ matrix.target.arch }} / storyteller-web tarball)
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.target.runner }}
     strategy:
       fail-fast: false
       matrix:
