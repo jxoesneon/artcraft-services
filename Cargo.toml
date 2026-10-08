@@ -197,6 +197,7 @@ members = [
 publish = false
 
 [workspace.dependencies]
+tracing = "0.1"
 # Hakari workspace hack (faster compile times)
 #
 # If an unrelated leaf package starts causing general build problems,
