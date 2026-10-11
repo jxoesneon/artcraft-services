@@ -35,7 +35,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/three": "0.184.0",
-    "tailwindcss": "4.3.0",
+    "tailwindcss": "4.3.3",
     "typescript": "^5"
   }
 }
